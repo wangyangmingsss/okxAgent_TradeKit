@@ -3,8 +3,11 @@
 ![OKX AI Hackathon](https://img.shields.io/badge/%23OKXAI%E6%9D%BE-Hackathon-blue)
 ![License](https://img.shields.io/badge/License-MIT-green)
 ![Agents](https://img.shields.io/badge/Agents-4-orange)
+[![Demo](https://img.shields.io/badge/🚀_在线演示-GitHub_Pages-F7931A)](https://wangyangmingsss.github.io/okxAgent_TradeKit/)
 
-> 基于 OKX API 构建的四大进阶 AI 交易智能体，覆盖资金费率套利、闪崩抄底、动量轮动、期权波动率狩猎四大策略场景。
+> 基于 OKX Agent Trade Kit 构建的四大进阶 AI 交易智能体，覆盖资金费率套利、闪崩抄底、动量轮动、期权波动率狩猎四大策略场景。
+
+## 🚀 [在线演示 → wangyangmingsss.github.io/okxAgent_TradeKit](https://wangyangmingsss.github.io/okxAgent_TradeKit/)
 
 ---
 
