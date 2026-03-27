@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OKX Agent Trade Kit — 四大进阶 AI 交易智能体</title>
+<meta name="description" content="基于 OKX Agent Trade Kit 构建的 AI 交易系统，覆盖资金费率套利、闪崩检测、动量轮动、期权波动率分析四大进阶策略。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* ===== RESET & BASE ===== */
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-dark:#050508;--bg-mid:#0a0d14;--bg-light:#0d1017;
+  --gold:#F7931A;--cyan:#00E5FF;--purple:#A855F7;--red:#EF4444;--blue:#3B82F6;--green:#10B981;--pink:#EC4899;
+  --card-bg:rgba(15,18,28,0.85);--card-border:rgba(255,255,255,0.05);
+  --text-primary:#F0F2F5;--text-secondary:#6B7280;
+  --font-head:'Syne',system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  --font-body:'DM Sans',system-ui,"PingFang SC","Microsoft YaHei",sans-serif;
+  --font-mono:'JetBrains Mono',monospace;
+}
+html{scroll-behavior:smooth;scrollbar-width:thin;scrollbar-color:var(--gold) var(--bg-dark)}
+body{font-family:var(--font-body);background:var(--bg-dark);color:var(--text-primary);overflow-x:hidden;line-height:1.6;-webkit-font-smoothing:antialiased}
+a{text-decoration:none;color:inherit}
+img{max-width:100%}
+
+/* ===== SCROLLBAR ===== */
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg-dark)}
+::-webkit-scrollbar-thumb{background:var(--gold);border-radius:3px}
+
+/* ===== DOT GRID OVERLAY ===== */
+.dot-grid{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;
+  background-image:radial-gradient(rgba(255,255,255,0.03) 1px,transparent 1px);
+  background-size:32px 32px}
+
+/* ===== FLOATING ORBS ===== */
+.orb{position:fixed;border-radius:50%;filter:blur(120px);pointer-events:none;z-index:0;opacity:0.3}
+.orb--gold{width:600px;height:600px;background:var(--gold);top:-15%;left:-8%;animation:drift1 25s ease-in-out infinite}
+.orb--cyan{width:500px;height:500px;background:var(--cyan);bottom:-15%;right:-8%;animation:drift2 30s ease-in-out infinite}
+.orb--purple{width:400px;height:400px;background:var(--purple);top:35%;right:15%;animation:drift3 22s ease-in-out infinite}
+@keyframes drift1{0%,100%{transform:translate(0,0)}25%{transform:translate(80px,100px)}50%{transform:translate(40px,180px)}75%{transform:translate(-50px,80px)}}
+@keyframes drift2{0%,100%{transform:translate(0,0)}25%{transform:translate(-90px,-80px)}50%{transform:translate(-50px,-150px)}75%{transform:translate(60px,-60px)}}
+@keyframes drift3{0%,100%{transform:translate(0,0)}33%{transform:translate(-100px,90px)}66%{transform:translate(80px,-110px)}}
+
+/* ===== NAVBAR ===== */
+.navbar{position:fixed;top:0;left:0;width:100%;z-index:1000;padding:0;transition:transform 0.35s ease,background 0.35s ease}
+.navbar.scrolled{background:rgba(5,5,8,0.88);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-bottom:1px solid var(--card-border)}
+.navbar.hidden{transform:translateY(-100%)}
+.navbar-inner{max-width:1200px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;height:64px}
+.nav-logo{font-family:var(--font-head);font-weight:800;font-size:18px;display:flex;align-items:center;gap:8px}
+.nav-logo-okx{color:var(--gold)}
+.nav-logo-text{color:var(--text-primary);font-weight:700}
+.nav-links{display:flex;gap:28px;align-items:center}
+.nav-links a{font-size:13.5px;font-weight:500;color:var(--text-secondary);transition:color 0.25s;position:relative}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-links a::after{content:'';position:absolute;bottom:-4px;left:0;width:0;height:2px;background:linear-gradient(90deg,var(--gold),var(--cyan));transition:width 0.25s;border-radius:1px}
+.nav-links a:hover::after{width:100%}
+.nav-github{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:1px solid rgba(247,147,26,0.4);border-radius:8px;font-size:13px;font-weight:600;color:var(--gold);transition:all 0.25s}
+.nav-github:hover{background:var(--gold);color:#000;border-color:var(--gold)}
+.nav-github::after{display:none!important}
+.nav-github svg{width:15px;height:15px;fill:currentColor}
+.hamburger{display:none;flex-direction:column;gap:5px;cursor:pointer;padding:4px;z-index:1001;background:none;border:none}
+.hamburger span{display:block;width:22px;height:2px;background:var(--text-primary);transition:all 0.3s;border-radius:1px}
+.hamburger.active span:nth-child(1){transform:rotate(45deg) translate(5px,5px)}
+.hamburger.active span:nth-child(2){opacity:0}
+.hamburger.active span:nth-child(3){transform:rotate(-45deg) translate(5px,-5px)}
+.mobile-menu{display:none;position:fixed;top:0;left:0;width:100%;height:100vh;background:rgba(5,5,8,0.97);backdrop-filter:blur(24px);z-index:999;flex-direction:column;align-items:center;justify-content:center;gap:36px;opacity:0;pointer-events:none;transition:opacity 0.35s}
+.mobile-menu.active{opacity:1;pointer-events:all}
+.mobile-menu a{font-size:22px;font-weight:600;color:var(--text-primary);transition:color 0.25s}
+.mobile-menu a:hover{color:var(--gold)}
+
+/* ===== SECTION COMMON ===== */
+.section{position:relative;z-index:1;padding:120px 24px;max-width:1200px;margin:0 auto}
+.section-header{text-align:center;margin-bottom:64px}
+.section-header h2{font-family:var(--font-head);font-size:clamp(28px,5vw,42px);font-weight:800;color:var(--text-primary);margin-bottom:16px}
+.section-header .accent-line{width:60px;height:3px;background:linear-gradient(90deg,var(--gold),var(--cyan));margin:0 auto;border-radius:2px}
+
+/* ===== REVEAL ANIMATION ===== */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity 0.7s cubic-bezier(.22,.61,.36,1),transform 0.7s cubic-bezier(.22,.61,.36,1)}
+.reveal.visible{opacity:1;transform:translateY(0)}
+.reveal-stagger{opacity:0;transform:translateY(30px);transition:opacity 0.6s cubic-bezier(.22,.61,.36,1),transform 0.6s cubic-bezier(.22,.61,.36,1)}
+.reveal-stagger.visible{opacity:1;transform:translateY(0)}
+
+/* ===== HERO ===== */
+.hero{min-height:100vh;display:flex;align-items:center;position:relative;z-index:1;padding:100px 24px 80px}
+.hero-inner{max-width:1200px;margin:0 auto;display:grid;grid-template-columns:55% 45%;gap:48px;align-items:center;width:100%}
+.hero-pill{display:inline-flex;align-items:center;gap:8px;padding:8px 20px;border:1px solid rgba(247,147,26,0.35);border-radius:100px;font-size:13px;font-weight:500;color:var(--gold);background:rgba(247,147,26,0.05);margin-bottom:28px;box-shadow:0 0 24px rgba(247,147,26,0.06);letter-spacing:0.3px}
+.hero h1{font-family:var(--font-head);font-size:clamp(42px,6vw,64px);font-weight:800;line-height:1.08;margin-bottom:20px;letter-spacing:-1px}
+.hero h1 .gradient-text{background:linear-gradient(135deg,var(--gold) 0%,#FFB84D 40%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-tagline{font-size:clamp(18px,2.5vw,22px);font-weight:600;color:var(--text-primary);margin-bottom:14px;letter-spacing:0.5px}
+.hero-desc{font-size:15px;color:var(--text-secondary);line-height:1.85;margin-bottom:36px;max-width:520px}
+.hero-buttons{display:flex;gap:14px;margin-bottom:48px;flex-wrap:wrap}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:linear-gradient(135deg,var(--gold),#e5a600);color:#000;font-weight:700;font-size:15px;border-radius:12px;transition:all 0.3s;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(247,147,26,0.25)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 36px rgba(247,147,26,0.35);background:linear-gradient(135deg,#ffaa33,var(--gold))}
+.btn-secondary{display:inline-flex;align-items:center;gap:8px;padding:14px 30px;background:transparent;color:var(--cyan);font-weight:600;font-size:15px;border-radius:12px;border:1px solid rgba(0,229,255,0.4);transition:all 0.3s;cursor:pointer}
+.btn-secondary:hover{background:rgba(0,229,255,0.06);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,229,255,0.12)}
+.hero-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.hero-stat{text-align:left}
+.hero-stat .stat-value{font-family:var(--font-head);font-size:clamp(24px,3vw,32px);font-weight:800}
+.hero-stat:nth-child(1) .stat-value{color:var(--gold)}
+.hero-stat:nth-child(2) .stat-value{color:var(--cyan)}
+.hero-stat:nth-child(3) .stat-value{color:var(--purple)}
+.hero-stat:nth-child(4) .stat-value{color:var(--green)}
+.hero-stat .stat-label{font-size:12.5px;color:var(--text-secondary);margin-top:2px;font-weight:500}
+
+/* TERMINAL MOCKUP */
+.terminal-wrap{position:relative}
+.terminal-wrap::before{content:'';position:absolute;inset:-1px;border-radius:17px;padding:1px;background:linear-gradient(135deg,rgba(247,147,26,0.15),rgba(0,229,255,0.1),rgba(168,85,247,0.1));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.terminal{background:linear-gradient(170deg,#0c1018 0%,#080b12 100%);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,0.6),0 0 60px rgba(0,229,255,0.04),0 0 120px rgba(247,147,26,0.03);border:1px solid rgba(255,255,255,0.04);transform:perspective(1400px) rotateY(-5deg) rotateX(2deg);transition:transform 0.6s cubic-bezier(.22,.61,.36,1)}
+.terminal:hover{transform:perspective(1400px) rotateY(-1.5deg) rotateX(0.5deg)}
+.terminal-bar{display:flex;align-items:center;gap:8px;padding:14px 18px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.04)}
+.terminal-dot{width:11px;height:11px;border-radius:50%}
+.terminal-dot:nth-child(1){background:#EF4444}
+.terminal-dot:nth-child(2){background:#F7931A}
+.terminal-dot:nth-child(3){background:#10B981}
+.terminal-bar-title{margin-left:auto;font-family:var(--font-mono);font-size:11px;color:rgba(107,114,128,0.7)}
+.terminal-body{padding:20px 22px;font-family:var(--font-mono);font-size:12px;line-height:1.95;min-height:320px}
+.terminal-body .t-line{white-space:pre;overflow:hidden}
+.terminal-body .t-cmd{color:var(--cyan)}
+.terminal-body .t-title{color:var(--gold);font-weight:600}
+.terminal-body .t-label{color:var(--text-secondary)}
+.terminal-body .t-value{color:var(--green)}
+.terminal-body .t-highlight{color:var(--gold)}
+.terminal-body .t-success{color:var(--green)}
+.terminal-body .t-dim{color:rgba(107,114,128,0.5)}
+.typing-cursor{display:inline-block;width:7px;height:15px;background:var(--cyan);animation:blink 1s step-end infinite;vertical-align:middle;margin-left:2px;border-radius:1px}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* ===== ARCHITECTURE ===== */
+.arch-flow{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:64px;flex-wrap:nowrap}
+.arch-box{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:22px 26px;text-align:center;backdrop-filter:blur(12px);min-width:150px;transition:all 0.3s;position:relative}
+.arch-box:hover{border-color:rgba(247,147,26,0.2);transform:translateY(-4px);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.arch-box .arch-icon{font-size:24px;margin-bottom:8px}
+.arch-box .arch-label{font-family:var(--font-head);font-size:14px;font-weight:700;color:var(--text-primary)}
+.arch-box .arch-sub{font-size:11.5px;color:var(--text-secondary);margin-top:3px;font-family:var(--font-mono)}
+.arch-arrow{width:52px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.arch-arrow-line{width:36px;height:2px;background:none;position:relative}
+.arch-arrow-line::before{content:'';position:absolute;top:0;left:0;width:100%;height:100%;background:var(--gold);animation:dashAnim 1.8s linear infinite}
+.arch-arrow-line::after{content:'';position:absolute;top:-4px;right:-2px;width:0;height:0;border-left:8px solid var(--gold);border-top:5px solid transparent;border-bottom:5px solid transparent}
+@keyframes dashAnim{0%{opacity:0.3}50%{opacity:1}100%{opacity:0.3}}
+
+.mcp-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.mcp-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:14px;padding:28px 22px;backdrop-filter:blur(12px);position:relative;overflow:hidden;transition:all 0.35s}
+.mcp-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.mcp-card:nth-child(1)::before{background:var(--cyan)}
+.mcp-card:nth-child(2)::before{background:var(--green)}
+.mcp-card:nth-child(3)::before{background:var(--purple)}
+.mcp-card:nth-child(4)::before{background:var(--pink)}
+.mcp-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.1);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.mcp-icon{font-size:28px;margin-bottom:14px}
+.mcp-name{font-family:var(--font-head);font-size:15px;font-weight:700;margin-bottom:6px}
+.mcp-desc{font-size:13px;color:var(--text-secondary);line-height:1.65}
+
+/* ===== AGENTS SHOWCASE ===== */
+.agents-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:24px}
+.agent-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:20px;padding:36px 32px;backdrop-filter:blur(12px);position:relative;overflow:hidden;transition:transform 0.4s cubic-bezier(.22,.61,.36,1),box-shadow 0.4s ease,border-color 0.4s ease}
+.agent-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:20px 20px 0 0}
+.agent-card::after{content:'';position:absolute;top:-60px;right:-60px;width:200px;height:200px;border-radius:50%;filter:blur(80px);opacity:0;transition:opacity 0.4s;pointer-events:none}
+.agent-card:hover{transform:translateY(-8px);border-color:rgba(255,255,255,0.08)}
+.agent-card:hover::after{opacity:1}
+
+.agent-card--gold::before{background:var(--gold)}
+.agent-card--gold::after{background:rgba(247,147,26,0.06)}
+.agent-card--gold:hover{box-shadow:0 16px 60px rgba(247,147,26,0.1)}
+.agent-card--red::before{background:var(--red)}
+.agent-card--red::after{background:rgba(239,68,68,0.06)}
+.agent-card--red:hover{box-shadow:0 16px 60px rgba(239,68,68,0.1)}
+.agent-card--blue::before{background:var(--blue)}
+.agent-card--blue::after{background:rgba(59,130,246,0.06)}
+.agent-card--blue:hover{box-shadow:0 16px 60px rgba(59,130,246,0.1)}
+.agent-card--purple::before{background:var(--purple)}
+.agent-card--purple::after{background:rgba(168,85,247,0.06)}
+.agent-card--purple:hover{box-shadow:0 16px 60px rgba(168,85,247,0.1)}
+
+.agent-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:26px;margin-bottom:20px}
+.agent-card--gold .agent-icon{background:rgba(247,147,26,0.08);border:1px solid rgba(247,147,26,0.15)}
+.agent-card--red .agent-icon{background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.15)}
+.agent-card--blue .agent-icon{background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.15)}
+.agent-card--purple .agent-icon{background:rgba(168,85,247,0.08);border:1px solid rgba(168,85,247,0.15)}
+
+.agent-letter{font-family:var(--font-mono);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px}
+.agent-card--gold .agent-letter{color:var(--gold)}
+.agent-card--red .agent-letter{color:var(--red)}
+.agent-card--blue .agent-letter{color:var(--blue)}
+.agent-card--purple .agent-letter{color:var(--purple)}
+
+.agent-name{font-family:var(--font-head);font-size:clamp(18px,2.2vw,22px);font-weight:700;margin-bottom:3px}
+.agent-name-cn{font-size:14px;color:var(--text-secondary);margin-bottom:16px;font-weight:500}
+.agent-strategy{display:inline-flex;align-items:center;padding:5px 14px;border-radius:8px;font-size:12px;font-weight:600;margin-bottom:16px}
+.agent-card--gold .agent-strategy{background:rgba(247,147,26,0.08);color:var(--gold);border:1px solid rgba(247,147,26,0.12)}
+.agent-card--red .agent-strategy{background:rgba(239,68,68,0.08);color:var(--red);border:1px solid rgba(239,68,68,0.12)}
+.agent-card--blue .agent-strategy{background:rgba(59,130,246,0.08);color:var(--blue);border:1px solid rgba(59,130,246,0.12)}
+.agent-card--purple .agent-strategy{background:rgba(168,85,247,0.08);color:var(--purple);border:1px solid rgba(168,85,247,0.12)}
+
+.agent-desc{font-size:14px;color:var(--text-secondary);line-height:1.85;margin-bottom:20px}
+.agent-badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+.agent-badge{padding:4px 11px;border-radius:6px;font-size:11px;font-weight:600;font-family:var(--font-mono);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);color:var(--text-secondary)}
+.agent-stats{display:flex;gap:10px;flex-wrap:wrap}
+.agent-stat{padding:6px 13px;border-radius:8px;font-family:var(--font-mono);font-size:11.5px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.04)}
+.agent-card--gold .agent-stat{color:var(--gold)}
+.agent-card--red .agent-stat{color:var(--red)}
+.agent-card--blue .agent-stat{color:var(--blue)}
+.agent-card--purple .agent-stat{color:var(--purple)}
+
+/* ===== FEATURES ===== */
+.features-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+.feature-card{background:var(--card-bg);border:1px solid var(--card-border);border-radius:16px;padding:32px 26px;backdrop-filter:blur(12px);transition:all 0.35s}
+.feature-card:hover{transform:translateY(-4px);border-color:rgba(255,255,255,0.08);box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.feature-icon{font-size:30px;margin-bottom:16px}
+.feature-title{font-family:var(--font-head);font-size:16px;font-weight:700;margin-bottom:8px}
+.feature-desc{font-size:13.5px;color:var(--text-secondary);line-height:1.75}
+
+/* ===== QUICK START ===== */
+.quickstart-wrap{position:relative;max-width:800px;margin:0 auto}
+.quickstart-wrap::before{content:'';position:absolute;inset:-1px;border-radius:17px;padding:1px;background:linear-gradient(135deg,rgba(247,147,26,0.1),rgba(0,229,255,0.08));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.quickstart-terminal{background:linear-gradient(170deg,#0c1018 0%,#080b12 100%);border-radius:16px;overflow:hidden;border:1px solid rgba(255,255,255,0.04);box-shadow:0 20px 60px rgba(0,0,0,0.4)}
+.quickstart-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:rgba(255,255,255,0.02);border-bottom:1px solid rgba(255,255,255,0.04)}
+.quickstart-bar .dots{display:flex;gap:8px}
+.quickstart-bar .dot{width:11px;height:11px;border-radius:50%}
+.quickstart-bar .dot:nth-child(1){background:#EF4444}
+.quickstart-bar .dot:nth-child(2){background:#F7931A}
+.quickstart-bar .dot:nth-child(3){background:#10B981}
+.copy-btn{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.07);border-radius:8px;color:var(--text-secondary);font-size:12px;font-family:var(--font-body);cursor:pointer;transition:all 0.25s}
+.copy-btn:hover{background:rgba(255,255,255,0.1);color:var(--text-primary)}
+.copy-btn.copied{color:var(--green);border-color:rgba(16,185,129,0.3)}
+.quickstart-code{padding:24px;font-family:var(--font-mono);font-size:12.5px;line-height:2.1;overflow-x:auto;white-space:pre}
+.quickstart-code .c{color:rgba(107,114,128,0.6)}
+.quickstart-code .s{color:var(--green)}
+.quickstart-code .k{color:var(--purple)}
+.quickstart-code .x{color:var(--cyan)}
+.quickstart-code .p{color:var(--text-primary)}
+
+/* ===== AUTHOR ===== */
+.author-card{max-width:420px;margin:0 auto;background:var(--card-bg);border:1px solid var(--card-border);border-radius:24px;padding:48px 40px;text-align:center;backdrop-filter:blur(12px);position:relative;overflow:hidden;transition:all 0.35s}
+.author-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--gold),var(--cyan))}
+.author-card:hover{border-color:rgba(255,255,255,0.08);box-shadow:0 12px 40px rgba(0,0,0,0.3)}
+.author-avatar{width:92px;height:92px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:800;color:var(--gold);margin:0 auto 22px;border:3px solid var(--gold);box-shadow:0 0 40px rgba(247,147,26,0.12);background:rgba(247,147,26,0.04);font-family:var(--font-head);transition:box-shadow 0.35s}
+.author-card:hover .author-avatar{box-shadow:0 0 50px rgba(247,147,26,0.2)}
+.author-name{font-family:var(--font-head);font-size:22px;font-weight:700;margin-bottom:8px}
+.author-handle{color:var(--cyan);font-size:14px;margin-bottom:14px;display:block;transition:color 0.25s;font-family:var(--font-mono)}
+.author-handle:hover{color:#33eaff}
+.author-bio{font-style:italic;color:var(--text-secondary);font-size:15px;margin-bottom:18px;letter-spacing:1.5px}
+.author-followers{display:inline-flex;align-items:center;gap:7px;padding:7px 16px;border-radius:100px;font-size:12px;font-weight:600;color:var(--text-secondary);background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06)}
+.author-followers svg{opacity:0.6}
+
+/* ===== FOOTER ===== */
+.footer{position:relative;z-index:1;border-top:1px solid rgba(255,255,255,0.04);padding:48px 24px;text-align:center;background:rgba(5,5,8,0.9)}
+.footer-hashtags{display:flex;gap:20px;justify-content:center;flex-wrap:wrap;margin-bottom:18px}
+.footer-hashtags a{font-weight:600;font-size:14px;transition:opacity 0.25s}
+.footer-hashtags a:hover{opacity:0.75}
+.footer-hashtags a:nth-child(1){color:var(--gold)}
+.footer-hashtags a:nth-child(2){color:var(--cyan)}
+.footer-hashtags a:nth-child(3){color:var(--gold)}
+.footer-links{margin-bottom:14px}
+.footer-links a{color:var(--text-secondary);font-size:13px;transition:color 0.25s;font-family:var(--font-mono)}
+.footer-links a:hover{color:var(--text-primary)}
+.footer-copy{font-size:12.5px;color:var(--text-secondary);margin-bottom:6px}
+.footer-license{font-size:11.5px;color:rgba(107,114,128,0.5)}
+
+/* ===== RESPONSIVE ===== */
+@media(max-width:1024px){
+  .hero-inner{grid-template-columns:1fr;text-align:center}
+  .hero-desc{margin-left:auto;margin-right:auto}
+  .hero-buttons{justify-content:center}
+  .hero-stats{justify-items:center}
+  .terminal-wrap{max-width:580px;margin:24px auto 0}
+  .terminal{transform:none}
+  .terminal:hover{transform:none}
+  .agents-grid{grid-template-columns:1fr}
+  .features-grid{grid-template-columns:repeat(2,1fr)}
+  .mcp-grid{grid-template-columns:repeat(2,1fr)}
+  .arch-flow{flex-wrap:wrap;justify-content:center;gap:8px}
+}
+@media(max-width:640px){
+  .section{padding:80px 16px}
+  .hero{padding:90px 16px 60px}
+  .hero-stats{grid-template-columns:repeat(2,1fr);gap:16px}
+  .features-grid{grid-template-columns:1fr}
+  .mcp-grid{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .hamburger{display:flex}
+  .mobile-menu{display:flex}
+  .agent-card{padding:28px 22px}
+  .hero-pill{font-size:12px;padding:6px 14px}
+  .arch-flow{flex-direction:column;align-items:center}
+  .arch-arrow{transform:rotate(90deg)}
+  .hero-buttons{flex-direction:column;align-items:center}
+  .btn-primary,.btn-secondary{width:100%;justify-content:center}
+  .author-card{padding:36px 24px;margin:0 -8px}
+}
+</style>
+</head>
+<body>
+
+<!-- BG EFFECTS -->
+<div class="dot-grid"></div>
+<div class="orb orb--gold"></div>
+<div class="orb orb--cyan"></div>
+<div class="orb orb--purple"></div>
+
+<!-- ===== NAVBAR ===== -->
+<nav class="navbar" id="navbar">
+  <div class="navbar-inner">
+    <a href="#" class="nav-logo">
+      <span class="nav-logo-okx">OKX</span>
+      <span class="nav-logo-text">Agent Trade Kit</span>
+    </a>
+    <div class="nav-links">
+      <a href="#architecture">架构</a>
+      <a href="#agents">智能体</a>
+      <a href="#features">特性</a>
+      <a href="#quickstart">快速开始</a>
+      <a href="https://github.com/wangyangmingsss/okxAgent_TradeKit" target="_blank" rel="noopener" class="nav-github">
+        <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+        GitHub
+      </a>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+<div class="mobile-menu" id="mobileMenu">
+  <a href="#architecture" onclick="closeMobile()">架构</a>
+  <a href="#agents" onclick="closeMobile()">智能体</a>
+  <a href="#features" onclick="closeMobile()">特性</a>
+  <a href="#quickstart" onclick="closeMobile()">快速开始</a>
+  <a href="https://github.com/wangyangmingsss/okxAgent_TradeKit" target="_blank" rel="noopener" onclick="closeMobile()">GitHub</a>
+</div>
+
+<!-- ===== SECTION 1: HERO ===== -->
+<section class="hero" id="hero">
+  <div class="hero-inner">
+    <div class="hero-left reveal">
+      <div class="hero-pill">&#127942; #OKXAI松 &middot; 龙虾赛道 &middot; 参赛作品</div>
+      <h1><span class="gradient-text">OKX Agent</span><br><span class="gradient-text">Trade Kit</span></h1>
+      <p class="hero-tagline">四大进阶 AI 交易智能体</p>
+      <p class="hero-desc">基于 OKX Agent Trade Kit 构建的 AI 交易系统，覆盖资金费率套利、闪崩检测、动量轮动、期权波动率分析四大进阶策略。全部在 Demo 模式下实测验证。</p>
+      <div class="hero-buttons">
+        <a href="https://github.com/wangyangmingsss/okxAgent_TradeKit" target="_blank" rel="noopener" class="btn-primary">查看 GitHub &rarr;</a>
+        <a href="#agents" class="btn-secondary">探索 Agents &darr;</a>
+      </div>
+      <div class="hero-stats">
+        <div class="hero-stat">
+          <div class="stat-value">4</div>
+          <div class="stat-label">Agents</div>
+        </div>
+        <div class="hero-stat">
+          <div class="stat-value">5</div>
+          <div class="stat-label">MCP 模块</div>
+        </div>
+        <div class="hero-stat">
+          <div class="stat-value">83+</div>
+          <div class="stat-label">工具</div>
+        </div>
+        <div class="hero-stat">
+          <div class="stat-value">MIT</div>
+          <div class="stat-label">开源免费</div>
+        </div>
+      </div>
+    </div>
+    <div class="hero-right reveal" style="transition-delay:0.2s">
+      <div class="terminal-wrap">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <div class="terminal-dot"></div>
+            <span class="terminal-bar-title">agent_e_funding_harvester.py</span>
+          </div>
+          <div class="terminal-body" id="terminalBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 2: ARCHITECTURE ===== -->
+<section class="section" id="architecture">
+  <div class="section-header reveal">
+    <h2>系统架构</h2>
+    <div class="accent-line"></div>
+  </div>
+
+  <div class="arch-flow reveal">
+    <div class="arch-box">
+      <div class="arch-icon">&#128100;</div>
+      <div class="arch-label">用户</div>
+      <div class="arch-sub">User</div>
+    </div>
+    <div class="arch-arrow"><div class="arch-arrow-line"></div></div>
+    <div class="arch-box">
+      <div class="arch-icon">&#129302;</div>
+      <div class="arch-label">4 个 AI Agent</div>
+      <div class="arch-sub">E / F / G / H</div>
+    </div>
+    <div class="arch-arrow"><div class="arch-arrow-line"></div></div>
+    <div class="arch-box">
+      <div class="arch-icon">&#128268;</div>
+      <div class="arch-label">MCP 协议层</div>
+      <div class="arch-sub">Model Context Protocol</div>
+    </div>
+    <div class="arch-arrow"><div class="arch-arrow-line"></div></div>
+    <div class="arch-box">
+      <div class="arch-icon">&#127970;</div>
+      <div class="arch-label">OKX 交易所</div>
+      <div class="arch-sub">DEX &amp; CEX</div>
+    </div>
+  </div>
+
+  <div class="mcp-grid">
+    <div class="mcp-card reveal-stagger">
+      <div class="mcp-icon">&#128200;</div>
+      <div class="mcp-name">Market 行情数据</div>
+      <div class="mcp-desc">实时行情、K线数据、深度信息、资金费率、历史数据查询</div>
+    </div>
+    <div class="mcp-card reveal-stagger" style="transition-delay:0.1s">
+      <div class="mcp-icon">&#9889;</div>
+      <div class="mcp-name">Trade 交易执行</div>
+      <div class="mcp-desc">现货与合约下单、撤单、批量操作、智能路由、订单管理</div>
+    </div>
+    <div class="mcp-card reveal-stagger" style="transition-delay:0.2s">
+      <div class="mcp-icon">&#128188;</div>
+      <div class="mcp-name">Portfolio 资产管理</div>
+      <div class="mcp-desc">账户余额查询、持仓管理、资金划转、盈亏统计分析</div>
+    </div>
+    <div class="mcp-card reveal-stagger" style="transition-delay:0.3s">
+      <div class="mcp-icon">&#127919;</div>
+      <div class="mcp-name">Option 期权交易</div>
+      <div class="mcp-desc">期权链查询、IV 曲面数据、Greeks 计算、期权下单执行</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 3: AGENTS SHOWCASE ===== -->
+<section class="section" id="agents">
+  <div class="section-header reveal">
+    <h2>四大交易智能体</h2>
+    <div class="accent-line"></div>
+  </div>
+
+  <div class="agents-grid">
+    <!-- Agent E -->
+    <div class="agent-card agent-card--gold reveal-stagger">
+      <div class="agent-icon">&#128176;</div>
+      <div class="agent-letter">Agent E</div>
+      <div class="agent-name">Funding Rate Harvester</div>
+      <div class="agent-name-cn">资金费率收割机</div>
+      <div class="agent-strategy">Delta 中性资金费率套利</div>
+      <p class="agent-desc">扫描 BTC/ETH/SOL 永续合约费率，按年化收益&times;稳定性排名，自动执行现货买入+合约做空的 Delta 中性对冲</p>
+      <div class="agent-badges">
+        <span class="agent-badge">market</span>
+        <span class="agent-badge">trade</span>
+        <span class="agent-badge">portfolio</span>
+      </div>
+      <div class="agent-stats">
+        <span class="agent-stat">年化 8.60%</span>
+        <span class="agent-stat">稳定性 1.36</span>
+        <span class="agent-stat">Delta &asymp; 0</span>
+      </div>
+    </div>
+
+    <!-- Agent F -->
+    <div class="agent-card agent-card--red reveal-stagger" style="transition-delay:0.1s">
+      <div class="agent-icon">&#9889;</div>
+      <div class="agent-letter">Agent F</div>
+      <div class="agent-name">Flash Crash Hunter</div>
+      <div class="agent-name-cn">闪崩猎手</div>
+      <div class="agent-strategy">四维闪崩评分 &amp; 自动抄底</div>
+      <p class="agent-desc">实时监控跌幅深度、订单簿失衡、成交量飙升、下跌速度，加权计算闪崩评分 0-100，超过 70 分自动限价抄底</p>
+      <div class="agent-badges">
+        <span class="agent-badge">market</span>
+        <span class="agent-badge">trade</span>
+      </div>
+      <div class="agent-stats">
+        <span class="agent-stat">BTC 4.8</span>
+        <span class="agent-stat">ETH 12.1</span>
+        <span class="agent-stat">SOL 9.3</span>
+        <span class="agent-stat">全部 MONITOR</span>
+      </div>
+    </div>
+
+    <!-- Agent G -->
+    <div class="agent-card agent-card--blue reveal-stagger" style="transition-delay:0.2s">
+      <div class="agent-icon">&#128260;</div>
+      <div class="agent-letter">Agent G</div>
+      <div class="agent-name">Momentum Rotation</div>
+      <div class="agent-name-cn">动量轮动引擎</div>
+      <div class="agent-strategy">8 币种跨资产动量轮动</div>
+      <p class="agent-desc">扫描 8 大主流币的 7d/14d/30d 收益率+加速度，排名分类 STRONG/NEUTRAL/WEAK，自动卖出弱势买入强势</p>
+      <div class="agent-badges">
+        <span class="agent-badge">market</span>
+        <span class="agent-badge">trade</span>
+        <span class="agent-badge">portfolio</span>
+      </div>
+      <div class="agent-stats">
+        <span class="agent-stat">SOL #1</span>
+        <span class="agent-stat">卖出 OKB</span>
+        <span class="agent-stat">买入 SOL</span>
+      </div>
+    </div>
+
+    <!-- Agent H -->
+    <div class="agent-card agent-card--purple reveal-stagger" style="transition-delay:0.3s">
+      <div class="agent-icon">&#128200;</div>
+      <div class="agent-letter">Agent H</div>
+      <div class="agent-name">Options IV Hunter</div>
+      <div class="agent-name-cn">期权波动率猎人</div>
+      <div class="agent-strategy">IV 曲面异常检测 &amp; 波动率交易</div>
+      <p class="agent-desc">扫描 BTC-USD 期权链，构建 IV 曲面，检测离群值(&gt;1.5&sigma;)、IV 偏斜、期限结构倒挂，生成交易信号</p>
+      <div class="agent-badges">
+        <span class="agent-badge">market</span>
+        <span class="agent-badge">option</span>
+      </div>
+      <div class="agent-stats">
+        <span class="agent-stat">14 个异常</span>
+        <span class="agent-stat">最强 z=2.89</span>
+        <span class="agent-stat">SELL 信号</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 4: FEATURES ===== -->
+<section class="section" id="features">
+  <div class="section-header reveal">
+    <h2>核心特性</h2>
+    <div class="accent-line"></div>
+  </div>
+
+  <div class="features-grid">
+    <div class="feature-card reveal-stagger">
+      <div class="feature-icon">&#128268;</div>
+      <div class="feature-title">MCP 协议标准</div>
+      <div class="feature-desc">Model Context Protocol，AI Agent 交易的统一接口</div>
+    </div>
+    <div class="feature-card reveal-stagger" style="transition-delay:0.1s">
+      <div class="feature-icon">&#128295;</div>
+      <div class="feature-title">83+ 交易工具</div>
+      <div class="feature-desc">覆盖行情、交易、合约、期权、资产管理完整链路</div>
+    </div>
+    <div class="feature-card reveal-stagger" style="transition-delay:0.2s">
+      <div class="feature-icon">&#128737;</div>
+      <div class="feature-title">Demo 安全模式</div>
+      <div class="feature-desc">模拟盘运行，API 密钥永不离开本地</div>
+    </div>
+    <div class="feature-card reveal-stagger" style="transition-delay:0.3s">
+      <div class="feature-icon">&#128214;</div>
+      <div class="feature-title">完全开源</div>
+      <div class="feature-desc">MIT License，代码透明可审计</div>
+    </div>
+    <div class="feature-card reveal-stagger" style="transition-delay:0.4s">
+      <div class="feature-icon">&#129513;</div>
+      <div class="feature-title">模块化设计</div>
+      <div class="feature-desc">每个 Agent 独立运行，可自由组合扩展</div>
+    </div>
+    <div class="feature-card reveal-stagger" style="transition-delay:0.5s">
+      <div class="feature-icon">&#9889;</div>
+      <div class="feature-title">实时决策执行</div>
+      <div class="feature-desc">从数据获取到下单执行全自动，毫秒级响应</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 5: QUICK START ===== -->
+<section class="section" id="quickstart">
+  <div class="section-header reveal">
+    <h2>快速开始</h2>
+    <div class="accent-line"></div>
+  </div>
+
+  <div class="quickstart-wrap reveal">
+    <div class="quickstart-terminal">
+      <div class="quickstart-bar">
+        <div class="dots">
+          <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+        </div>
+        <button class="copy-btn" id="copyBtn" onclick="copyCode()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          复制代码
+        </button>
+      </div>
+      <div class="quickstart-code" id="quickstartCode"><span class="c"># 1. 安装 OKX CLI</span>
+<span class="x">npx</span><span class="p"> @anthropic-ai/create-mcp </span><span class="s">'{"name":"okx-mcp","skills":["okx/agent-skills"]}'</span>
+
+<span class="c"># 2. 设置 API 密钥（Demo 模式）</span>
+<span class="k">export</span> <span class="x">OKX_API_KEY</span><span class="p">=</span><span class="s">"your-api-key"</span>
+<span class="k">export</span> <span class="x">OKX_SECRET_KEY</span><span class="p">=</span><span class="s">"your-secret-key"</span>
+<span class="k">export</span> <span class="x">OKX_PASSPHRASE</span><span class="p">=</span><span class="s">"your-passphrase"</span>
+
+<span class="c"># 3. 运行 Agent</span>
+<span class="x">python3</span><span class="p"> agents/agent_e_funding_harvester.py</span>
+<span class="x">python3</span><span class="p"> agents/agent_f_flash_crash_hunter.py</span>
+<span class="x">python3</span><span class="p"> agents/agent_g_momentum_rotation.py</span>
+<span class="x">python3</span><span class="p"> agents/agent_h_options_iv_hunter.py</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 6: AUTHOR ===== -->
+<section class="section" id="author">
+  <div class="section-header reveal">
+    <h2>作者</h2>
+    <div class="accent-line"></div>
+  </div>
+
+  <div class="author-card reveal">
+    <div class="author-avatar">王</div>
+    <div class="author-name">币圈王阳明</div>
+    <a href="https://x.com/0xWangyangming" target="_blank" rel="noopener" class="author-handle">@0xWangyangming</a>
+    <div class="author-bio">心即行情，知行合一</div>
+    <div class="author-followers">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4-4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+      1.45K Followers
+    </div>
+  </div>
+</section>
+
+<!-- ===== SECTION 7: FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-hashtags">
+    <a href="#">#OKXAI松</a>
+    <a href="#">#OKX</a>
+    <a href="#">#AgentTradeKit</a>
+  </div>
+  <div class="footer-links">
+    <a href="https://github.com/wangyangmingsss/okxAgent_TradeKit" target="_blank" rel="noopener">GitHub Repository</a>
+  </div>
+  <p class="footer-copy">Built with OKX Agent Trade Kit &middot; MIT License</p>
+  <p class="footer-license">&copy; 2026 币圈王阳明. All rights reserved.</p>
+</footer>
+
+<!-- ===== SCRIPTS ===== -->
+<script>
+/* ===== TERMINAL TYPING EFFECT ===== */
+(function(){
+  var lines = [
+    {t:'$ python3 agent_e_funding_harvester.py', c:'t-cmd'},
+    {t:'', c:''},
+    {t:'━━━ 资金费率收割机 ━━━', c:'t-title'},
+    {t:'', c:''},
+    {t:'\u{1F4E1} 扫描资金费率...', c:'t-label'},
+    {t:'   BTC-USDT-SWAP  费率: 0.01%  年化: 8.60%', c:'t-value'},
+    {t:'   ETH-USDT-SWAP  费率: 0.008% 年化: 6.91%', c:'t-value'},
+    {t:'   SOL-USDT-SWAP  费率: 0.005% 年化: 4.32%', c:'t-value'},
+    {t:'', c:''},
+    {t:'\u{1F3C6} 最优标的: BTC-USDT-SWAP', c:'t-highlight'},
+    {t:'   稳定性评分: 1.3558', c:'t-label'},
+    {t:'', c:''},
+    {t:'\u2705 执行 Delta 中性对冲', c:'t-success'},
+    {t:'   买入 0.001 BTC 现货', c:'t-label'},
+    {t:'   做空 1 张 BTC 永续合约', c:'t-label'},
+    {t:'   净 Delta \u2248 0', c:'t-success'}
+  ];
+  var body = document.getElementById('terminalBody');
+  var lineIdx = 0, charIdx = 0, currentEl = null;
+  var cursor = document.createElement('span');
+  cursor.className = 'typing-cursor';
+
+  function type(){
+    if(lineIdx >= lines.length){
+      body.appendChild(cursor);
+      return;
+    }
+    var line = lines[lineIdx];
+    if(!currentEl){
+      currentEl = document.createElement('div');
+      currentEl.className = 't-line' + (line.c ? ' ' + line.c : '');
+      body.appendChild(currentEl);
+    }
+    if(charIdx < line.t.length){
+      currentEl.textContent = line.t.substring(0, charIdx + 1);
+      if(cursor.parentNode) cursor.remove();
+      currentEl.appendChild(cursor);
+      charIdx++;
+      var d = line.c === 't-cmd' ? 28 : 10;
+      setTimeout(type, d);
+    } else {
+      if(cursor.parentNode) cursor.remove();
+      if(line.t.length === 0) currentEl.innerHTML = '&nbsp;';
+      currentEl = null;
+      charIdx = 0;
+      lineIdx++;
+      setTimeout(type, lineIdx <= 1 ? 500 : 60);
+    }
+  }
+  setTimeout(type, 900);
+})();
+
+/* ===== SCROLL REVEAL ===== */
+(function(){
+  var obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, {threshold:0.08, rootMargin:'0px 0px -30px 0px'});
+  document.querySelectorAll('.reveal,.reveal-stagger').forEach(function(el){ obs.observe(el); });
+})();
+
+/* ===== NAVBAR HIDE/SHOW ===== */
+(function(){
+  var navbar = document.getElementById('navbar');
+  var lastY = 0, ticking = false;
+  window.addEventListener('scroll', function(){
+    if(!ticking){
+      window.requestAnimationFrame(function(){
+        var y = window.scrollY;
+        if(y > 60) navbar.classList.add('scrolled');
+        else navbar.classList.remove('scrolled');
+        if(y > lastY && y > 200) navbar.classList.add('hidden');
+        else navbar.classList.remove('hidden');
+        lastY = y;
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, {passive:true});
+})();
+
+/* ===== HAMBURGER ===== */
+var hamburger = document.getElementById('hamburger');
+var mobileMenu = document.getElementById('mobileMenu');
+hamburger.addEventListener('click', function(){
+  hamburger.classList.toggle('active');
+  mobileMenu.classList.toggle('active');
+  document.body.style.overflow = mobileMenu.classList.contains('active') ? 'hidden' : '';
+});
+function closeMobile(){
+  hamburger.classList.remove('active');
+  mobileMenu.classList.remove('active');
+  document.body.style.overflow = '';
+}
+
+/* ===== COPY CODE ===== */
+function copyCode(){
+  var code = document.getElementById('quickstartCode').innerText;
+  navigator.clipboard.writeText(code).then(function(){
+    var btn = document.getElementById('copyBtn');
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg> 已复制';
+    setTimeout(function(){
+      btn.classList.remove('copied');
+      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg> 复制代码';
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>
