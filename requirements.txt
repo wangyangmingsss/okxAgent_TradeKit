@@ -1,0 +1,13 @@
+# requirements.txt
+# OKX Agent Trade Kit — 四大进阶 AI 交易智能体
+#
+# 本项目所有 Agent 均基于 OKX CLI (okx-cli) 运行，
+# 无需额外 Python 第三方依赖。
+#
+# 安装 OKX CLI:
+#   请参考 OKX 官方文档安装并配置 okx-cli
+#   https://www.okx.com/docs-v5/
+#
+# 如需本地开发/调试，可选安装:
+# requests>=2.28.0
+# websocket-client>=1.5.0
